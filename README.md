@@ -9,8 +9,8 @@
 ## Models
 
 ### Metric
-- log4j_metric.ipynb: using logistic regression for SDP using CK-metrics-calculated features
+- log4j_metric.ipynb: using logistic regression on the CK-metrics-calculated features
 
 ### AST: extract certain kinds of the AST nodes.
-- MLP_log4j.ipynb: using MLP 
+- MLP_log4j.ipynb: using MLP on the extracted AST nodes
 - RNN_log4j.ipynb: using Bidirection-LSTM

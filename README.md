@@ -11,7 +11,7 @@
 ### Metric (in baseline folder)
 - log4j_metric.ipynb: using logistic regression on the CK-metrics-calculated features
 
-### AST: extract certain kinds of the AST nodes. (in baseline folder)
+### AST (in baseline folder)
 - MLP_log4j.ipynb: using MLP on the extracted AST nodes
 - RNN_log4j.ipynb: using Bidirection-LSTM
 

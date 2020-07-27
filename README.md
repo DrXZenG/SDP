@@ -17,8 +17,11 @@
 
 ### ASTNN (in astnn folder)
 paper: http://xuwang.tech/paper/astnn_icse2019.pdf
+
 related files: train.ipynb, process.ipynb, model.py
+
 need packages: javalang, pytorch, gensim
+
 run: 
 1. run process.ipynb step by step
 2. run train.ipynb step by step

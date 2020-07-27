@@ -8,14 +8,15 @@
 
 ## Models
 
-### Metric
+### Metric (in baseline folder)
 - log4j_metric.ipynb: using logistic regression on the CK-metrics-calculated features
 
-### AST: extract certain kinds of the AST nodes.
+### AST: extract certain kinds of the AST nodes. (in baseline folder)
 - MLP_log4j.ipynb: using MLP on the extracted AST nodes
 - RNN_log4j.ipynb: using Bidirection-LSTM
 
-### ASTNN paper: http://xuwang.tech/paper/astnn_icse2019.pdf
+### ASTNN (in astnn folder)
+paper: http://xuwang.tech/paper/astnn_icse2019.pdf
 related files: train.ipynb, process.ipynb, model.py
 need packages: javalang, pytorch, gensim
 run: 

@@ -20,7 +20,11 @@ paper: http://xuwang.tech/paper/astnn_icse2019.pdf
 
 related files: train.ipynb, process.ipynb, model.py
 
-need packages: javalang, pytorch, gensim
+need packages: javalang, pytorch, gensim. All can be installed by
+
+```bash
+pip install -r requirements-astnn.txt
+```
 
 run: 
 1. run process.ipynb step by step

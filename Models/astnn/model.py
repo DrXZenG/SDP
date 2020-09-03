@@ -108,18 +108,18 @@ class BatchProgramCC(nn.Module):
         self.hidden_intermediate = nn.Linear(self.hidden_dim * 2, self.hidden_dim)
         self.hidden2label = nn.Linear(self.hidden_dim, self.label_size)
         # hidden
-        self.hidden = self.init_hidden()
+        #self.hidden = self.init_hidden()
         self.dropout = nn.Dropout(0.2)
 
-    def init_hidden(self):
-        if self.gpu is True:
-            if isinstance(self.bigru, nn.LSTM):
-                h0 = Variable(torch.zeros(self.num_layers * 2, self.batch_size, self.hidden_dim).cuda())
-                c0 = Variable(torch.zeros(self.num_layers * 2, self.batch_size, self.hidden_dim).cuda())
-                return h0, c0
-            return Variable(torch.zeros(self.num_layers * 2, self.batch_size, self.hidden_dim)).cuda()
-        else:
-            return Variable(torch.zeros(self.num_layers * 2, self.batch_size, self.hidden_dim))
+    # def init_hidden(self):
+    #     if self.gpu is True:
+    #         if isinstance(self.bigru, nn.LSTM):
+    #             h0 = Variable(torch.zeros(self.num_layers * 2, self.batch_size, self.hidden_dim).cuda())
+    #             c0 = Variable(torch.zeros(self.num_layers * 2, self.batch_size, self.hidden_dim).cuda())
+    #             return h0, c0
+    #         return Variable(torch.zeros(self.num_layers * 2, self.batch_size, self.hidden_dim)).cuda()
+    #     else:
+    #         return Variable(torch.zeros(self.num_layers * 2, self.batch_size, self.hidden_dim))
 
     def get_zeros(self, num):
         zeros = Variable(torch.zeros(num, self.encode_dim))
@@ -149,23 +149,142 @@ class BatchProgramCC(nn.Module):
         encodes = encodes.view(self.batch_size, max_len, -1)
         # return encodes
 
-        # encodes = self.pos_encoder(encodes)
         # output = self.transformer_encoder(encodes, None)
         # output = torch.transpose(output, 1, 2)
         # output = F.max_pool1d(output, output.size(2)).squeeze(2)
+        gru_out, _ = self.bigru(encodes)
+        # # pooling
+        gru_out = torch.transpose(gru_out, 1, 2)
+        output = F.max_pool1d(gru_out, gru_out.size(2)).squeeze(2)
+        
+        # #gru_out = gru_out[:,-1]
+
+        return output
+
+    def forward(self, x, bs):
+        self.batch_size = bs
+        self.lstm_batch = bs
+        vec = self.encode(x)
+        # vec = torch.relu(self.hidden_intermediate(vec))
+        # y = torch.sigmoid(self.hidden2label(vec))
+        return vec
+
+class Attention(nn.Module):
+    def __init__(self, feature_dim, **kwargs):
+        super(Attention, self).__init__(**kwargs)
+        
+        self.supports_masking = True
+
+        self.feature_dim = feature_dim
+        self.features_dim = 0
+        
+        weight = torch.zeros(feature_dim, 1)
+        nn.init.kaiming_uniform_(weight)
+        self.weight = nn.Parameter(weight)
+        
+    def forward(self, x, step_dim, mask=None):
+        feature_dim = self.feature_dim 
+
+        eij = torch.mm(
+            x.contiguous().view(-1, feature_dim), 
+            self.weight
+        ).view(-1, step_dim)
+            
+        eij = torch.tanh(eij)
+        a = torch.exp(eij)
+        if mask is not None:
+            a = a * mask
+
+        a = a / (torch.sum(a, 1, keepdim=True) + 1e-10)
+
+        weighted_input = x * torch.unsqueeze(a, -1)
+        return torch.sum(weighted_input, 1), a
+
+class MethodNN(nn.Module):
+    def __init__(self, embedding_dim, hidden_dim, vocab_size, encode_dim, label_size, batch_size, use_gpu=True, pretrained_weight=None):
+        super(MethodNN, self).__init__()
+        self.stop = [vocab_size-1]
+        self.hidden_dim = hidden_dim
+        self.num_layers = 1
+        self.gpu = use_gpu
+        self.batch_size = batch_size
+        self.vocab_size = vocab_size
+        self.embedding_dim = embedding_dim
+        self.encode_dim = encode_dim
+        self.label_size = label_size
+
+        self.encoder = BatchProgramCC(embedding_dim, hidden_dim, vocab_size, encode_dim, label_size, batch_size, use_gpu, pretrained_weight)
+
+        self.root2label = nn.Linear(self.encode_dim, self.label_size)
+        # gru
+        self.bigru = nn.GRU(self.encode_dim, self.hidden_dim, num_layers=self.num_layers, bidirectional=True,
+                            batch_first=True)
+
+        # linear
+        self.hidden_intermediate = nn.Linear(self.hidden_dim * 2, self.hidden_dim)
+        self.hidden2label = nn.Linear(self.hidden_dim, self.label_size)
+        # hidden
+        self.hidden = self.init_hidden()
+        self.dropout = nn.Dropout(0.2)
+
+        self.attention_layer = Attention(self.hidden_dim*2)
+
+    def init_hidden(self):
+        if self.gpu is True:
+            if isinstance(self.bigru, nn.LSTM):
+                h0 = Variable(torch.zeros(self.num_layers * 2, self.batch_size, self.hidden_dim).cuda())
+                c0 = Variable(torch.zeros(self.num_layers * 2, self.batch_size, self.hidden_dim).cuda())
+                return h0, c0
+            return Variable(torch.zeros(self.num_layers * 2, self.batch_size, self.hidden_dim)).cuda()
+        else:
+            return Variable(torch.zeros(self.num_layers * 2, self.batch_size, self.hidden_dim))
+
+    def get_zeros(self, num):
+        zeros = Variable(torch.zeros(num, self.encode_dim))
+        if self.gpu:
+            return zeros.cuda()
+        return zeros
+
+    def encode(self, x):
+        # "method-level"
+        lens = [len(item) for item in x]
+        max_len = max(lens)
+
+        encodes = []
+        for i in range(self.batch_size):
+            for j in range(lens[i]):
+                encodes.append(x[i][j])
+        encodes = self.encoder(encodes, sum(lens))
+
+        seq, start, end = [], 0, 0
+        for i in range(self.batch_size):
+            end += lens[i]
+            if max_len-lens[i]:
+                seq.append(self.get_zeros(max_len-lens[i]))
+            seq.append(encodes[start:end])
+            start = end
+
+        encodes = torch.cat(seq)
+        encodes = encodes.view(self.batch_size, max_len, -1)
 
         gru_out, _ = self.bigru(encodes, self.hidden)
         # # pooling
         gru_out = torch.transpose(gru_out, 1, 2)
         output = F.max_pool1d(gru_out, gru_out.size(2)).squeeze(2)
         
-        # gru_out = gru_out[:,-1]
+        # #gru_out = gru_out[:,-1]
 
-        return output
+        # idx = torch.arange(max_len).expand((self.batch_size, max_len))
+        # len_expanded = torch.LongTensor(lens).unsqueeze(1).expand((self.batch_size, max_len))
+        # mask = idx < len_expanded
+
+        # output, att = self.attention_layer(gru_out, max_len, mask)
+
+        return output, 1
 
     def forward(self, x):
-        vec = self.encode(x)
+        # "method-level"
+        vec, att = self.encode(x)
         vec = torch.relu(self.hidden_intermediate(vec))
         y = torch.sigmoid(self.hidden2label(vec))
-        return y, vec
-
+        return y, vec, att

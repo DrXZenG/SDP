@@ -2,23 +2,21 @@
 
 ## Dataset
 
-- df_log4j_v10.csv: contains [java file name, java file content, defective label] for log4j project.
-- log4j_v10.csv: CK-metrics-calculated features of the java files in the log4j project. 
+- metric folder: contains metric for "camel" project, contains CK-metrics-calculated features.
+- AST foder: contains [java file name, java file content, defective label] for "camel" project.
 
 
 ## Models
 
-### Metric (in baseline folder)
-- log4j_metric.ipynb: using logistic regression on the CK-metrics-calculated features
+### baseline
+- metric.py: using logistic regression on the CK-metrics-calculated features
 
-### AST (in baseline folder)
-- MLP_log4j.ipynb: using MLP on the extracted AST nodes
-- RNN_log4j.ipynb: using Bidirection-LSTM
+- RBM.py: using RBM on the extracted AST nodes
+- RNN.py: using Bidirection-LSTM 
 
-### ASTNN (in astnn folder)
+### astnn 
 paper: http://xuwang.tech/paper/astnn_icse2019.pdf
 
-related files: train.ipynb, process.ipynb, model.py
 
 need packages: javalang, pytorch, gensim. All can be installed by
 
@@ -26,6 +24,14 @@ need packages: javalang, pytorch, gensim. All can be installed by
 pip install -r requirements-astnn.txt
 ```
 
-run: 
-1. run process.ipynb step by step
-2. run train.ipynb step by step
+## run baseline models: 
+cd Models/baselines/
+
+1. python3 metrics.py
+2. python3 RBM.py
+3. python3 RNN.py
+
+## run astnn model:
+cd Models/astnn/
+
+1. python3 train.py 
